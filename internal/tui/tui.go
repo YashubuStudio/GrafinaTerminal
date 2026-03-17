@@ -19,6 +19,11 @@ import (
 
 const (
 	clearScreen = "\x1b[H\x1b[2J"
+	homeCursor  = "\x1b[H"
+	clearToEnd  = "\x1b[J"
+	clearLine   = "\x1b[2K"
+	enterAlt    = "\x1b[?1049h"
+	exitAlt     = "\x1b[?1049l"
 	hideCursor  = "\x1b[?25l"
 	showCursor  = "\x1b[?25h"
 	reset       = "\x1b[0m"
@@ -56,6 +61,8 @@ type app struct {
 	priorityAsc     bool
 	metricSort      bool
 	defaultTermSize int
+	lastLines       []string
+	lastWidth       int
 }
 
 type tableLayout struct {
@@ -85,8 +92,8 @@ func RunInteractive(ctx context.Context, mon *monitor.Monitor, cfg *config.Confi
 		defaultTermSize: 100,
 	}
 
-	fmt.Fprint(a.out, hideCursor)
-	defer fmt.Fprint(a.out, showCursor+"\r\n")
+	fmt.Fprint(a.out, enterAlt+hideCursor+clearScreen)
+	defer fmt.Fprint(a.out, showCursor+exitAlt+"\r\n")
 
 	ch := mon.Subscribe()
 	defer mon.Unsubscribe(ch)
@@ -398,7 +405,6 @@ func (a *app) draw() {
 	selectedIdx := a.currentIndex(devices)
 
 	var sb strings.Builder
-	sb.WriteString(clearScreen)
 
 	aliveN := 0
 	for _, d := range devices {
@@ -438,7 +444,9 @@ func (a *app) draw() {
 	}
 	sb.WriteString("\r\n")
 
-	fmt.Fprint(a.out, sb.String())
+	frame := strings.TrimSuffix(sb.String(), "\r\n")
+	lines := strings.Split(frame, "\r\n")
+	a.writeFrame(lines, width)
 }
 
 func (a *app) statusLine(devices []monitor.DeviceStatus) string {
@@ -668,23 +676,72 @@ func chooseLayout(width int) tableLayout {
 	layout := tableLayout{
 		nameWidth:    24,
 		showPriority: true,
-		showTemp:     width >= 110,
-		showNet:      width >= 136,
+		showTemp:     width >= 98,
+		showNet:      width >= 122,
 	}
 
 	switch {
-	case width < 90:
+	case width < 88:
 		layout.nameWidth = 18
 		layout.showPriority = false
-	case width < 110:
+	case width < 98:
 		layout.nameWidth = 20
-	case width < 136:
-		layout.nameWidth = 20
+	case width < 122:
+		layout.nameWidth = 18
 	default:
-		layout.nameWidth = 24
+		layout.nameWidth = 20
 	}
 
 	return layout
+}
+
+func (a *app) writeFrame(lines []string, width int) {
+	var sb strings.Builder
+
+	if len(a.lastLines) == 0 || a.lastWidth != width {
+		sb.WriteString(homeCursor)
+		for _, line := range lines {
+			sb.WriteString(line)
+			sb.WriteString("\r\n")
+		}
+		sb.WriteString(clearToEnd)
+		fmt.Fprint(a.out, sb.String())
+		a.lastLines = append([]string(nil), lines...)
+		a.lastWidth = width
+		return
+	}
+
+	maxLines := len(lines)
+	if len(a.lastLines) > maxLines {
+		maxLines = len(a.lastLines)
+	}
+
+	for i := 0; i < maxLines; i++ {
+		current := ""
+		if i < len(lines) {
+			current = lines[i]
+		}
+		previous := ""
+		if i < len(a.lastLines) {
+			previous = a.lastLines[i]
+		}
+		if current == previous {
+			continue
+		}
+
+		sb.WriteString(fmt.Sprintf("\x1b[%d;1H", i+1))
+		sb.WriteString(clearLine)
+		sb.WriteString(current)
+	}
+
+	if len(lines) < len(a.lastLines) {
+		sb.WriteString(fmt.Sprintf("\x1b[%d;1H", len(lines)+1))
+		sb.WriteString(clearToEnd)
+	}
+
+	fmt.Fprint(a.out, sb.String())
+	a.lastLines = append([]string(nil), lines...)
+	a.lastWidth = width
 }
 
 func renderBar(alive bool, value float64, color bool) string {
