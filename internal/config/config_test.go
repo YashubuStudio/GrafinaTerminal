@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -15,7 +16,9 @@ prometheus:
   url: http://prom:9090
   job: mynode
 devices:
-  "10.0.0.1:9100": "server-a"
+  "10.0.0.1:9100":
+    name: server-a
+    priority: 200
 `
 	f := writeTmp(t, yaml)
 	cfg, err := Load(f)
@@ -35,8 +38,11 @@ devices:
 	if cfg.Prometheus.Job != "mynode" {
 		t.Errorf("job = %s, want mynode", cfg.Prometheus.Job)
 	}
-	if cfg.Devices["10.0.0.1:9100"] != "server-a" {
+	if cfg.Devices["10.0.0.1:9100"].Name != "server-a" {
 		t.Errorf("device alias not loaded")
+	}
+	if cfg.Devices["10.0.0.1:9100"].Priority != 200 {
+		t.Errorf("priority = %d, want 200", cfg.Devices["10.0.0.1:9100"].Priority)
 	}
 }
 
@@ -80,6 +86,38 @@ server:
 	}
 }
 
+func TestLoad_LegacyDeviceString(t *testing.T) {
+	f := writeTmp(t, `
+devices:
+  "10.0.0.1:9100": "server-a"
+`)
+
+	cfg, err := Load(f)
+	if err != nil {
+		t.Fatalf("Load error: %v", err)
+	}
+	if cfg.Devices["10.0.0.1:9100"].Name != "server-a" {
+		t.Fatalf("legacy name = %q, want server-a", cfg.Devices["10.0.0.1:9100"].Name)
+	}
+	if cfg.Devices["10.0.0.1:9100"].Priority != 0 {
+		t.Fatalf("legacy priority = %d, want 0", cfg.Devices["10.0.0.1:9100"].Priority)
+	}
+}
+
+func TestLoad_InvalidPriority(t *testing.T) {
+	f := writeTmp(t, `
+devices:
+  "10.0.0.1:9100":
+    name: server-a
+    priority: 300
+`)
+
+	_, err := Load(f)
+	if err == nil {
+		t.Fatal("範囲外 priority でエラーが返らない")
+	}
+}
+
 func TestSave_RoundTrip(t *testing.T) {
 	// ロード
 	f := writeTmp(t, `
@@ -90,7 +128,9 @@ prometheus:
   url: http://prom:9090
   job: mynode
 devices:
-  "10.0.0.1:9100": "server-a"
+  "10.0.0.1:9100":
+    name: server-a
+    priority: 200
 `)
 	cfg, err := Load(f)
 	if err != nil {
@@ -98,7 +138,7 @@ devices:
 	}
 
 	// エイリアス変更して保存
-	cfg.Devices["10.0.0.2:9100"] = "server-b"
+	cfg.Devices.Upsert("10.0.0.2:9100", "server-b", 50)
 
 	outPath := f + ".saved.yaml"
 	defer os.Remove(outPath)
@@ -119,11 +159,26 @@ devices:
 	if cfg2.Server.Interval.Unwrap() != 5*time.Second {
 		t.Errorf("interval = %v, want 5s", cfg2.Server.Interval.Unwrap())
 	}
-	if cfg2.Devices["10.0.0.1:9100"] != "server-a" {
+	if cfg2.Devices["10.0.0.1:9100"].Name != "server-a" {
 		t.Error("server-a alias lost")
 	}
-	if cfg2.Devices["10.0.0.2:9100"] != "server-b" {
+	if cfg2.Devices["10.0.0.1:9100"].Priority != 200 {
+		t.Error("server-a priority lost")
+	}
+	if cfg2.Devices["10.0.0.2:9100"].Name != "server-b" {
 		t.Error("server-b alias not saved")
+	}
+	if cfg2.Devices["10.0.0.2:9100"].Priority != 50 {
+		t.Error("server-b priority not saved")
+	}
+
+	savedData, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("Read saved file error: %v", err)
+	}
+	saved := string(savedData)
+	if strings.Index(saved, `"10.0.0.1:9100"`) > strings.Index(saved, `"10.0.0.2:9100"`) {
+		t.Fatal("devices were not saved in stable priority-desc order")
 	}
 }
 

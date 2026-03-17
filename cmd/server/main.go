@@ -30,7 +30,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	mon := monitor.New(cfg.Prometheus.URL, cfg.Prometheus.Job, cfg.Devices, cfg.Server.Interval.Unwrap())
+	mon := monitor.New(cfg.Prometheus.URL, cfg.Prometheus.Job, toMonitorDevices(cfg.Devices), cfg.Server.Interval.Unwrap())
 
 	switch *mode {
 	case "server":
@@ -49,7 +49,8 @@ func main() {
 			log.Fatalf("once モードエラー: %v", err)
 		}
 		color := isTerminal(os.Stdout)
-		fmt.Fprint(os.Stdout, tui.RenderSnapshot(mon.Devices(), time.Now(), color))
+		devices := monitor.SortedDevices(mon.Devices(), monitor.DefaultSortOptions())
+		fmt.Fprint(os.Stdout, tui.RenderSnapshot(devices, time.Now(), color))
 	default:
 		log.Fatalf("不明な mode: %s (server, tui, once のいずれかを指定)", *mode)
 	}
@@ -96,4 +97,15 @@ func isTerminal(f *os.File) bool {
 		return false
 	}
 	return fi.Mode()&os.ModeCharDevice != 0
+}
+
+func toMonitorDevices(devices config.DevicesConfig) map[string]monitor.DeviceConfig {
+	out := make(map[string]monitor.DeviceConfig, len(devices))
+	for instance, device := range devices {
+		out[instance] = monitor.DeviceConfig{
+			Name:     device.Name,
+			Priority: device.Priority,
+		}
+	}
+	return out
 }

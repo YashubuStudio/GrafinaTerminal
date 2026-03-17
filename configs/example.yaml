@@ -6,9 +6,15 @@ prometheus:
   url: http://localhost:9090
   job: node        # node_exporterのジョブ名
 
-# デバイス名のエイリアス（任意）
-# instance → 表示名
+# デバイス設定（任意）
+# priority は 0-255。数値が大きいほど優先度が高い
 devices:
-  "192.168.1.10:9100": "raspi-living"
-  "192.168.1.11:9100": "raspi-kitchen"
-  "192.168.1.12:9100": "raspi-garage"
+  "192.168.1.10:9100":
+    name: raspi-living
+    priority: 220
+  "192.168.1.11:9100":
+    name: raspi-kitchen
+    priority: 180
+  "192.168.1.12:9100":
+    name: raspi-garage
+    priority: 120

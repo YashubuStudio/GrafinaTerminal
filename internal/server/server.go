@@ -36,7 +36,7 @@ func (s *Server) handlePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	devices := s.mon.Devices()
+	devices := monitor.SortedDevices(s.mon.Devices(), monitor.DefaultSortOptions())
 	tbody := renderTableBody(devices)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -66,7 +66,7 @@ func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			devices := s.mon.Devices()
+			devices := monitor.SortedDevices(s.mon.Devices(), monitor.DefaultSortOptions())
 			tbody := renderTableBody(devices)
 			// SSE data行: 改行を\nに分割して送る
 			lines := strings.Split(tbody, "\n")
