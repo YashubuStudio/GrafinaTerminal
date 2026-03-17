@@ -12,6 +12,12 @@ func TestLoad(t *testing.T) {
 server:
   port: 3000
   interval: 5s
+  burn_in:
+    enabled: false
+    pixel_shift_interval: 30s
+    pixel_shift_step: 3
+    idle_dim_after: 2m
+    idle_brightness: 0.55
 prometheus:
   url: http://prom:9090
   job: mynode
@@ -31,6 +37,21 @@ devices:
 	}
 	if cfg.Server.Interval.Unwrap() != 5*time.Second {
 		t.Errorf("interval = %v, want 5s", cfg.Server.Interval.Unwrap())
+	}
+	if cfg.Server.BurnIn.EnabledValue() {
+		t.Errorf("burn_in.enabled = true, want false")
+	}
+	if cfg.Server.BurnIn.PixelShiftInterval.Unwrap() != 30*time.Second {
+		t.Errorf("pixel_shift_interval = %v, want 30s", cfg.Server.BurnIn.PixelShiftInterval.Unwrap())
+	}
+	if cfg.Server.BurnIn.PixelShiftStep != 3 {
+		t.Errorf("pixel_shift_step = %d, want 3", cfg.Server.BurnIn.PixelShiftStep)
+	}
+	if cfg.Server.BurnIn.IdleDimAfter.Unwrap() != 2*time.Minute {
+		t.Errorf("idle_dim_after = %v, want 2m", cfg.Server.BurnIn.IdleDimAfter.Unwrap())
+	}
+	if cfg.Server.BurnIn.IdleBrightness != 0.55 {
+		t.Errorf("idle_brightness = %v, want 0.55", cfg.Server.BurnIn.IdleBrightness)
 	}
 	if cfg.Prometheus.URL != "http://prom:9090" {
 		t.Errorf("prometheus url = %s", cfg.Prometheus.URL)
@@ -58,6 +79,21 @@ func TestLoad_Defaults(t *testing.T) {
 	}
 	if cfg.Server.Interval.Unwrap() != 3*time.Second {
 		t.Errorf("default interval = %v, want 3s", cfg.Server.Interval.Unwrap())
+	}
+	if !cfg.Server.BurnIn.EnabledValue() {
+		t.Error("default burn_in.enabled = false, want true")
+	}
+	if cfg.Server.BurnIn.PixelShiftInterval.Unwrap() != 45*time.Second {
+		t.Errorf("default pixel_shift_interval = %v, want 45s", cfg.Server.BurnIn.PixelShiftInterval.Unwrap())
+	}
+	if cfg.Server.BurnIn.PixelShiftStep != 2 {
+		t.Errorf("default pixel_shift_step = %d, want 2", cfg.Server.BurnIn.PixelShiftStep)
+	}
+	if cfg.Server.BurnIn.IdleDimAfter.Unwrap() != 90*time.Second {
+		t.Errorf("default idle_dim_after = %v, want 90s", cfg.Server.BurnIn.IdleDimAfter.Unwrap())
+	}
+	if cfg.Server.BurnIn.IdleBrightness != 0.65 {
+		t.Errorf("default idle_brightness = %v, want 0.65", cfg.Server.BurnIn.IdleBrightness)
 	}
 	if cfg.Prometheus.URL != "http://localhost:9090" {
 		t.Errorf("default prom url = %s", cfg.Prometheus.URL)
@@ -115,6 +151,19 @@ devices:
 	_, err := Load(f)
 	if err == nil {
 		t.Fatal("範囲外 priority でエラーが返らない")
+	}
+}
+
+func TestLoad_InvalidBurnInBrightness(t *testing.T) {
+	f := writeTmp(t, `
+server:
+  burn_in:
+    idle_brightness: 1.2
+`)
+
+	_, err := Load(f)
+	if err == nil {
+		t.Fatal("範囲外 idle_brightness でエラーが返らない")
 	}
 }
 

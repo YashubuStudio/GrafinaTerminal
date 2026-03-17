@@ -30,6 +30,12 @@ Grafana の代替というより、低スペック機で「今どのノードが
 server:
   port: 8080
   interval: 3s
+  burn_in:
+    enabled: true
+    pixel_shift_interval: 45s
+    pixel_shift_step: 2
+    idle_dim_after: 90s
+    idle_brightness: 0.65
 
 prometheus:
   url: http://localhost:9090
@@ -46,12 +52,27 @@ devices:
 
 - `server.port`: `server` モードで待ち受けるポート
 - `server.interval`: Prometheus を引く間隔。正の duration が必要です
+- `server.burn_in.enabled`: ブラウザ表示の焼き付き対策を有効化するか
+- `server.burn_in.pixel_shift_interval`: 画面全体を微小移動する間隔
+- `server.burn_in.pixel_shift_step`: 1 回あたりの移動量 (px)
+- `server.burn_in.idle_dim_after`: 無操作時に減光へ入るまでの時間
+- `server.burn_in.idle_brightness`: 減光時の明るさ。`0 < x <= 1`
 - `prometheus.url`: Prometheus 本体の URL
 - `prometheus.job`: `node_exporter` の job 名
 - `devices.<instance>.name`: 表示名
 - `devices.<instance>.priority`: 0-255 の優先度。通常表示では大きい方が先
 
 `devices` は旧形式の `instance: "name"` でも読み込めますが、保存すると新しいオブジェクト形式になります。
+
+## 焼き付き対策
+
+`server` モードでは、焼き付き対策として次を入れています。
+
+- 数十秒おきの `pixel shift`
+- 無操作時の自動減光
+- 保護用の低輝度テーマ
+
+常時表示のモニタで使う場合は、まずデフォルト設定のまま試し、必要なら `server.burn_in.*` を詰めてください。
 
 ## ローカル実行
 

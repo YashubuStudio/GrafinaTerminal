@@ -30,8 +30,8 @@ func TestRenderTableBody_Devices(t *testing.T) {
 	if !strings.Contains(html, "1:alive") {
 		t.Error("alive表示がない")
 	}
-	if !strings.Contains(html, "#a6e3a1") {
-		t.Error("green色がない")
+	if !strings.Contains(html, "var(--ok)") {
+		t.Error("ok色がない")
 	}
 	if !strings.Contains(html, "45.5%") {
 		t.Error("CPU値がない")
@@ -41,8 +41,8 @@ func TestRenderTableBody_Devices(t *testing.T) {
 	if !strings.Contains(html, "0:dead") {
 		t.Error("dead表示がない")
 	}
-	if !strings.Contains(html, "#f38ba8") {
-		t.Error("red色がない")
+	if !strings.Contains(html, "var(--bad)") {
+		t.Error("bad色がない")
 	}
 }
 
@@ -51,14 +51,40 @@ func TestBarColor(t *testing.T) {
 		val  float64
 		want string
 	}{
-		{50, "#a6e3a1"},
-		{75, "#f9e2af"},
-		{95, "#f38ba8"},
+		{50, "var(--ok)"},
+		{75, "var(--warn)"},
+		{95, "var(--bad)"},
 	}
 	for _, tt := range tests {
 		got := barColor(tt.val)
 		if got != tt.want {
 			t.Errorf("barColor(%v) = %s, want %s", tt.val, got, tt.want)
 		}
+	}
+}
+
+func TestNewPageData_IncludesProtectionSettings(t *testing.T) {
+	data := newPageData("<tr></tr>", ScreenProtection{
+		Enabled:            true,
+		PixelShiftInterval: 45 * time.Second,
+		PixelShiftStep:     2,
+		IdleDimAfter:       90 * time.Second,
+		IdleBrightness:     0.65,
+	})
+
+	if data.TBody != "<tr></tr>" {
+		t.Fatalf("tbody = %q, want rendered html", data.TBody)
+	}
+	if !data.Protection.Enabled {
+		t.Fatal("protection.enabled = false, want true")
+	}
+	if data.Protection.PixelShiftMS != 45000 {
+		t.Fatalf("pixelShiftMs = %d, want 45000", data.Protection.PixelShiftMS)
+	}
+	if data.Protection.IdleDimMS != 90000 {
+		t.Fatalf("idleDimMs = %d, want 90000", data.Protection.IdleDimMS)
+	}
+	if data.Protection.IdleBrightness != "0.65" {
+		t.Fatalf("idleBrightness = %s, want 0.65", data.Protection.IdleBrightness)
 	}
 }

@@ -59,7 +59,13 @@ func main() {
 func runServer(ctx context.Context, cfg *config.Config, mon *monitor.Monitor) error {
 	go mon.Run(ctx)
 
-	srv := server.New(mon)
+	srv := server.New(mon, server.ScreenProtection{
+		Enabled:            cfg.Server.BurnIn.EnabledValue(),
+		PixelShiftInterval: cfg.Server.BurnIn.PixelShiftInterval.Unwrap(),
+		PixelShiftStep:     cfg.Server.BurnIn.PixelShiftStep,
+		IdleDimAfter:       cfg.Server.BurnIn.IdleDimAfter.Unwrap(),
+		IdleBrightness:     cfg.Server.BurnIn.IdleBrightness,
+	})
 	mux := http.NewServeMux()
 	srv.RegisterRoutes(mux)
 

@@ -1,6 +1,12 @@
 server:
   port: 8080
   interval: 3s    # Prometheusポーリング間隔
+  burn_in:
+    enabled: true
+    pixel_shift_interval: 45s
+    pixel_shift_step: 2
+    idle_dim_after: 90s
+    idle_brightness: 0.65
 
 prometheus:
   url: http://localhost:9090

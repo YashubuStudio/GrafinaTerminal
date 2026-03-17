@@ -18,8 +18,17 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port     int      `yaml:"port"`
-	Interval Duration `yaml:"interval"`
+	Port     int          `yaml:"port"`
+	Interval Duration     `yaml:"interval"`
+	BurnIn   BurnInConfig `yaml:"burn_in,omitempty"`
+}
+
+type BurnInConfig struct {
+	Enabled            *bool    `yaml:"enabled,omitempty"`
+	PixelShiftInterval Duration `yaml:"pixel_shift_interval,omitempty"`
+	PixelShiftStep     int      `yaml:"pixel_shift_step,omitempty"`
+	IdleDimAfter       Duration `yaml:"idle_dim_after,omitempty"`
+	IdleBrightness     float64  `yaml:"idle_brightness,omitempty"`
 }
 
 type PrometheusConfig struct {
@@ -33,6 +42,13 @@ type DeviceConfig struct {
 }
 
 type DevicesConfig map[string]DeviceConfig
+
+func (b BurnInConfig) EnabledValue() bool {
+	if b.Enabled == nil {
+		return true
+	}
+	return *b.Enabled
+}
 
 func (d *DevicesConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind == 0 {
@@ -155,6 +171,34 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.Server.Interval.Unwrap() <= 0 {
 		return nil, fmt.Errorf("server.interval は正の値が必要です: %s", cfg.Server.Interval.Unwrap())
+	}
+	if cfg.Server.BurnIn.Enabled == nil {
+		enabled := true
+		cfg.Server.BurnIn.Enabled = &enabled
+	}
+	if cfg.Server.BurnIn.PixelShiftInterval == 0 {
+		cfg.Server.BurnIn.PixelShiftInterval = Duration(45 * time.Second)
+	}
+	if cfg.Server.BurnIn.PixelShiftStep == 0 {
+		cfg.Server.BurnIn.PixelShiftStep = 2
+	}
+	if cfg.Server.BurnIn.IdleDimAfter == 0 {
+		cfg.Server.BurnIn.IdleDimAfter = Duration(90 * time.Second)
+	}
+	if cfg.Server.BurnIn.IdleBrightness == 0 {
+		cfg.Server.BurnIn.IdleBrightness = 0.65
+	}
+	if cfg.Server.BurnIn.PixelShiftInterval.Unwrap() < 0 {
+		return nil, fmt.Errorf("server.burn_in.pixel_shift_interval は 0 以上が必要です: %s", cfg.Server.BurnIn.PixelShiftInterval.Unwrap())
+	}
+	if cfg.Server.BurnIn.PixelShiftStep < 0 || cfg.Server.BurnIn.PixelShiftStep > 8 {
+		return nil, fmt.Errorf("server.burn_in.pixel_shift_step は 0-8 の範囲で指定してください: %d", cfg.Server.BurnIn.PixelShiftStep)
+	}
+	if cfg.Server.BurnIn.IdleDimAfter.Unwrap() < 0 {
+		return nil, fmt.Errorf("server.burn_in.idle_dim_after は 0 以上が必要です: %s", cfg.Server.BurnIn.IdleDimAfter.Unwrap())
+	}
+	if cfg.Server.BurnIn.IdleBrightness <= 0 || cfg.Server.BurnIn.IdleBrightness > 1 {
+		return nil, fmt.Errorf("server.burn_in.idle_brightness は 0 より大きく 1 以下で指定してください: %g", cfg.Server.BurnIn.IdleBrightness)
 	}
 	if cfg.Prometheus.URL == "" {
 		cfg.Prometheus.URL = "http://localhost:9090"
