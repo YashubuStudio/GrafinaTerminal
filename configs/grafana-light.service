@@ -1,0 +1,15 @@
+[Unit]
+Description=Grafana Light Dashboard Viewer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/grafana-light/grafana-light -config /etc/grafana-light/config.yaml
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=4096
+MemoryMax=64M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+server:
+  port: 8080
+  interval: 3s    # Prometheusポーリング間隔
+
+prometheus:
+  url: http://localhost:9090
+  job: node        # node_exporterのジョブ名
+
+# デバイス名のエイリアス（任意）
+# instance → 表示名
+devices:
+  "192.168.1.10:9100": "raspi-living"
+  "192.168.1.11:9100": "raspi-kitchen"
+  "192.168.1.12:9100": "raspi-garage"
